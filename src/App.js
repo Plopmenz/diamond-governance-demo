@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { DiamondGovernanceClient } from '@plopmenz/diamond-governance-sdk'; 
 import './App.css';
-import { proposal } from '@plopmenz/diamond-governance-sdk/dist/typechain-types/contracts/facets/governance';
 
-const DGaddress = "0x0287fDB9aD1577E6ec2aD2dc261B195C29423B01";
+const DGaddress = "0x6Bf26Ec92291123Be0f56AB1A43D93837E9b880a";
 
 function App() {
 
@@ -26,13 +25,21 @@ function App() {
         const client = new DiamondGovernanceClient(DGaddress, signer);
         const test = await client.pure.IERC165();
         console.log(await test.supportsInterface("0xffffffff"));
+        const daoRef = await client.pure.IDAOReferenceFacet();
+        object.dao = await daoRef.dao();
+        console.log(object.dao);
         object.proposalCount = await client.sugar.GetProposalCount();
+        console.log(object.proposalCount);
         object.proposals = await client.sugar.GetProposals();
+        console.log(object.proposals);
         object.members = await client.sugar.GetMembers();
+        console.log(object.members);
         const claimer = await client.pure.IERC20OneTimeVerificationRewardFacet();
         object.tokensClaimable = String(await claimer.tokensClaimableVerificationRewardAll());
+        console.log(object.claimer);
         const erc20 = await client.pure.IERC20();
         object.myTokens = String(await erc20.balanceOf(await signer.getAddress()));
+        console.log(object.erc20);
         setData(object);
       }
       catch(err) {
@@ -86,6 +93,7 @@ function App() {
         const transaction = await client.sugar.CreateProposal({
           title: input.title,
           description: input.description,
+          body: "<wow, such empty>",
           resources: [],
         }, [], from, to);
         await transaction.wait();
@@ -102,6 +110,7 @@ function App() {
       <div className="container">
         {error && <p>{error}</p>}
         <h1>Diamond Governance Demo!</h1>
+        <p>DAO: {data.dao}</p>
         <p className="count">{data.proposalCount} Proposals</p>
         {
           data.proposals?.map(proposal => <p key={proposal.id}><b>{proposal.metadata.title}: </b>{proposal.metadata.description}</p>)
