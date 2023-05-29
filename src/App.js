@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 import { DiamondGovernanceClient } from '@plopmenz/diamond-governance-sdk'; 
 import './App.css';
 
-const DGaddress = "0x6Bf26Ec92291123Be0f56AB1A43D93837E9b880a";
+const DGaddress = "0xc57052Bb93BFF80b637A2f5c85Bac28bEa8C5A8d";
 
 function App() {
 
@@ -40,6 +40,7 @@ function App() {
         const erc20 = await client.pure.IERC20();
         object.myTokens = String(await erc20.balanceOf(await signer.getAddress()));
         console.log(object.erc20);
+        console.log("Variables:", JSON.stringify(await client.sugar.GetVariables()));
         setData(object);
       }
       catch(err) {
@@ -93,9 +94,19 @@ function App() {
         const transaction = await client.sugar.CreateProposal({
           title: input.title,
           description: input.description,
-          body: "<wow, such empty>",
-          resources: [],
-        }, [], from, to);
+          body: "<p></p>",
+          resources: [{
+            name: "Google",
+            url: "https://google.com",
+          }],
+        }, [{
+          interface: "IERC20MultiMinterFacet",
+          method: "multimint(address[],uint256[])",
+          params: {
+            _addresses: ["0xaF7E68bCb2Fc7295492A00177f14F59B92814e70"],
+            _amounts: [BigNumber.from(69)]
+          }
+        }], from, to);
         await transaction.wait();
         fetchData();
       }
