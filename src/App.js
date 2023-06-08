@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { BigNumber, ethers } from 'ethers';
-import { DiamondGovernanceClient } from '@plopmenz/diamond-governance-sdk'; 
+import { DiamondGovernanceClient, VoteOption } from '@plopmenz/diamond-governance-sdk'; 
 import './App.css';
 
-const DGaddress = "0xc57052Bb93BFF80b637A2f5c85Bac28bEa8C5A8d";
+const DGaddress = "0xA62efe22F905025bA607A6B57a5285ac9e1a6797";
 
 function App() {
 
   const [error, setError] = useState('');
-  const [data, setData] = useState({})
-  const [input, setInput] = useState({})
+  const [data, setData] = useState({});
+  const [input, setInput] = useState({});
+  const [amount, setAmount] = useState(0);
+  const [mintable, setMintable] = useState(0);
+  const [burnable, setBurnable] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -30,16 +33,14 @@ function App() {
         console.log(object.dao);
         object.proposalCount = await client.sugar.GetProposalCount();
         console.log(object.proposalCount);
-        object.proposals = await client.sugar.GetProposals();
+        object.proposals = await client.sugar.GetProposals(undefined, undefined, undefined, 1, 3);
         console.log(object.proposals);
         object.members = await client.sugar.GetMembers();
         console.log(object.members);
         const claimer = await client.pure.IERC20OneTimeVerificationRewardFacet();
         object.tokensClaimable = String(await claimer.tokensClaimableVerificationRewardAll());
-        console.log(object.claimer);
         const erc20 = await client.pure.IERC20();
         object.myTokens = String(await erc20.balanceOf(await signer.getAddress()));
-        console.log(object.erc20);
         console.log("Variables:", JSON.stringify(await client.sugar.GetVariables()));
         setData(object);
       }
@@ -59,7 +60,6 @@ function App() {
         const claimer = await client.pure.IERC20OneTimeVerificationRewardFacet();
         const transaction = await claimer.claimVerificationRewardAll();
         await transaction.wait();
-        fetchData();
       }
       catch(err) {
         setError(err.message);
@@ -108,6 +108,120 @@ function App() {
           }
         }], from, to);
         await transaction.wait();
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+
+  async function vote(proposalId, voteOption) {
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const proposal = await client.sugar.GetProposal(1);
+        const transaction = await proposal.Vote(voteOption, BigNumber.from(10).pow(18).mul(9));
+        await transaction.wait();
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+  
+  async function execute(proposalId) {
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const proposal = await client.sugar.GetProposal(proposalId);
+        const transaction = await proposal.Execute();
+        await transaction.wait();
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+  
+  async function changeAmount(event) {
+    const a = BigNumber.from(event.target.value);
+    setAmount(a.toBigInt());
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const MarketMaker = await client.sugar.GetABCMarketMaker();
+        try {
+          setMintable((await MarketMaker.calculateMint(a)).toBigInt());
+        } catch {
+          setMintable(-1);
+        }
+        try {
+          setBurnable((await MarketMaker.calculateBurn(a)).toBigInt());
+        } catch {
+          setBurnable(-1);
+        }
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+
+  async function approve() {
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const MarketMaker = await client.sugar.GetABCMarketMaker();
+        const extERC20 = await MarketMaker.externalToken();
+        const ERC20 = new ethers.Contract(extERC20, ['function approve(address spender, uint256 amount) returns (bool)'], signer);
+        const transaction = await ERC20.approve(MarketMaker.address, ethers.constants.MaxUint256);
+        await transaction.wait();
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+
+  async function mint() {
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const MarketMaker = await client.sugar.GetABCMarketMaker();
+        const transaction = await MarketMaker.mint(BigNumber.from(amount.toString()), 0);
+        await transaction.wait();
+      }
+      catch(err) {
+        setError(err.message);
+      }
+    }
+  }
+
+  async function burn() {
+    if(typeof window.ethereum !== 'undefined') {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = provider.getSigner();
+      try {
+        const client = new DiamondGovernanceClient(DGaddress, signer);
+        const MarketMaker = await client.sugar.GetABCMarketMaker();
+        const transaction = await MarketMaker.burn(BigNumber.from(amount.toString()), 0);
+        await transaction.wait();
         fetchData();
       }
       catch(err) {
@@ -124,7 +238,7 @@ function App() {
         <p>DAO: {data.dao}</p>
         <p className="count">{data.proposalCount} Proposals</p>
         {
-          data.proposals?.map(proposal => <p key={proposal.id}><b>{proposal.metadata.title}: </b>{proposal.metadata.description}</p>)
+          data.proposals?.map(proposal => <p key={proposal.id}><b>{proposal.metadata.title}: </b>{proposal.metadata.description}<button onClick={() => vote(proposal.id, VoteOption.Yes)}>Vote Yes</button><button onClick={() => vote(proposal.id, VoteOption.No)}>Vote No</button><button onClick={() => execute(proposal.id)}>Execute</button></p>)
         }
         <p className="count">{data.members?.length ?? 0} Members</p>
         {
@@ -141,8 +255,15 @@ function App() {
           </label>
           <input type="submit" value="Create Proposal" />
         </form>
-        <button onClick={claim}>Claim {data.tokensClaimable} tokens</button>
-        <p className="cost">I have {data.myTokens} tokens</p>
+        <button onClick={claim}>Claim {data.tokensClaimable} tokens</button><br />
+        <p className="cost">I have {data.myTokens} tokens</p><br />
+        <button onClick={approve}>Approve</button><br />
+        <label>
+          Amount:
+          <input type="numeric" value={amount.toString()} onChange={changeAmount} />
+        </label>
+        <button enabled={mintable > 0} onClick={mint}>Mint {mintable.toString()}</button>
+        <button enabled={burnable > 0} onClick={burn}>Burn {burnable.toString()}</button>
       </div>
     </div>
   );
