@@ -3,7 +3,7 @@ import { BigNumber, ethers } from 'ethers';
 import { DiamondGovernanceClient, VoteOption } from '@plopmenz/diamond-governance-sdk'; 
 import './App.css';
 
-const DGaddress = "0xA62efe22F905025bA607A6B57a5285ac9e1a6797";
+const DGaddress = "0x0e2a39c6eD2A231baE7e781768E60ee1A62afC9F";
 
 function App() {
 
@@ -122,7 +122,7 @@ function App() {
       const signer = provider.getSigner();
       try {
         const client = new DiamondGovernanceClient(DGaddress, signer);
-        const proposal = await client.sugar.GetProposal(1);
+        const proposal = await client.sugar.GetProposal(proposalId);
         const transaction = await proposal.Vote(voteOption, BigNumber.from(10).pow(18).mul(9));
         await transaction.wait();
       }
@@ -262,8 +262,8 @@ function App() {
           Amount:
           <input type="numeric" value={amount.toString()} onChange={changeAmount} />
         </label>
-        <button enabled={mintable > 0} onClick={mint}>Mint {mintable.toString()}</button>
-        <button enabled={burnable > 0} onClick={burn}>Burn {burnable.toString()}</button>
+        <button enabled={(mintable > 0).toString()} onClick={mint}>Mint {mintable.toString()}</button>
+        <button enabled={(burnable > 0).toString()} onClick={burn}>Burn {burnable.toString()}</button>
       </div>
     </div>
   );
